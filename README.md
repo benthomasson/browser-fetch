@@ -5,11 +5,11 @@ Fetch authenticated web content using a browser session. Uses Playwright with pe
 ## Quick Start
 
 ```bash
-# Server mode (recommended) - keeps browser open for multiple fetches
-uvx --from "git+https://github.com/benthomasson/browser-fetch" browser-fetch --serve https://internal.example.com
+# Server mode with security token (recommended)
+uvx --from "git+https://github.com/benthomasson/browser-fetch" browser-fetch --serve --require-token https://internal.example.com
 
-# Log in via browser, then fetch with curl:
-curl 'http://localhost:8080/fetch?url=https://internal.example.com/page&text=true'
+# Server prints a token. Use it to fetch:
+curl 'http://localhost:8080/fetch?token=YOUR_TOKEN&url=https://internal.example.com/page&text=true'
 ```
 
 ```bash
@@ -65,28 +65,33 @@ browser-fetch --headless -o /tmp/page.html https://internal.example.com/page
 | `--profile-dir DIR` | Custom profile directory |
 | `--serve` | Run as HTTP server (browser stays open) |
 | `--port N` | Server port (default: 8080) |
+| `--require-token` | Require secret token for requests (recommended) |
 
 ## Server Mode
 
 Keep browser open for multiple fetches - best for SSO sites:
 
 ```bash
-# Start server (opens browser)
-uvx --from "git+https://github.com/benthomasson/browser-fetch" browser-fetch --serve https://internal.example.com
+# Start server with security token (recommended)
+uvx --from "git+https://github.com/benthomasson/browser-fetch" browser-fetch --serve --require-token https://internal.example.com
 
-# Log in via the browser window, then fetch via curl:
-curl 'http://localhost:8080/fetch?url=https://internal.example.com/page'
-curl 'http://localhost:8080/fetch?url=https://internal.example.com/other&text=true'
-curl 'http://localhost:8080/fetch?url=https://internal.example.com/doc&selector=main'
+# Server prints:
+# *** Security token required ***
+# Token: abc123xyz...
 
-# Check health
+# Log in via the browser window, then fetch via curl with token:
+curl 'http://localhost:8080/fetch?token=abc123xyz&url=https://internal.example.com/page'
+curl 'http://localhost:8080/fetch?token=abc123xyz&url=https://internal.example.com/other&text=true'
+
+# Check health (no token needed)
 curl 'http://localhost:8080/health'
 
-# Shutdown
-curl 'http://localhost:8080/shutdown'
+# Shutdown (token required)
+curl 'http://localhost:8080/shutdown?token=abc123xyz'
 ```
 
 **Query parameters:**
+- `token` - security token (required if --require-token used)
 - `url` - URL to fetch (required)
 - `text=true` - extract text only (no HTML)
 - `selector=CSS` - extract specific element
@@ -97,6 +102,7 @@ curl 'http://localhost:8080/shutdown'
 1. **Persistent profile**: Stores cookies and session data in `~/.config/browser-fetch/profile`
 2. **Real browser**: Uses Chromium via Playwright, handles JavaScript and SSO
 3. **Session reuse**: Login once, fetch many times until session expires
+4. **Security token**: Random token generated on startup prevents unauthorized access
 
 ## Examples
 
@@ -123,16 +129,20 @@ browser-fetch --headless --selector "#content" https://intranet.example.com/page
 ### Use with Claude
 
 ```bash
-# Fetch and save for Claude to read
-browser-fetch --headless --text -o /tmp/page.txt https://internal.example.com/doc
+# Start server with token
+browser-fetch --serve --require-token https://internal.example.com
 
-# Then Claude can read /tmp/page.txt
+# Give the token to Claude, then Claude can fetch via curl:
+curl 'http://localhost:8080/fetch?token=TOKEN&url=https://internal.example.com/doc&text=true'
 ```
 
 ## Troubleshooting
 
 ### "Session expired"
 Re-run with `--login` to refresh your session.
+
+### "401 Unauthorized"
+You need to include the token in your request. Check the server output for the token.
 
 ### "Playwright not installed"
 ```bash
@@ -147,7 +157,10 @@ Some SSO systems need more wait time: `--wait 10`
 
 ## Security
 
+- **Use --require-token**: Prevents other local processes from using your session
+- Token is randomly generated on each server start
 - Session data stored in `~/.config/browser-fetch/profile`
+- Server binds to localhost only (not accessible from network)
 - Profile directory permissions should be restricted
 - Sessions expire when the site's auth expires
-- Don't share your profile directory
+- Don't share your profile directory or token
