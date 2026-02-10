@@ -85,6 +85,12 @@ def main():
         help='Server port (default: 8080)'
     )
     
+    parser.add_argument(
+        '--require-token',
+        action='store_true',
+        help='Require a secret token for server requests (recommended for security)'
+    )
+    
     args = parser.parse_args()
     
     if args.serve:
@@ -97,7 +103,8 @@ def main():
         run_server(
             start_url=args.url,
             port=args.port,
-            profile_dir=args.profile_dir
+            profile_dir=args.profile_dir,
+            require_token=args.require_token
         )
         return
     

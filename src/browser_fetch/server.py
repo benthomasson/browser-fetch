@@ -1,6 +1,8 @@
 """HTTP server mode - keeps browser open for multiple fetches"""
 
 import json
+import secrets
+import signal
 import sys
 import urllib.parse
 from http.server import HTTPServer, BaseHTTPRequestHandler
@@ -13,20 +15,34 @@ class BrowserFetchHandler(BaseHTTPRequestHandler):
     
     browser_context = None
     page = None
+    required_token = None
     
     def log_message(self, format, *args):
         print(f"[browser-fetch] {args[0]}", file=sys.stderr)
+    
+    def check_token(self, query):
+        """Check if token is valid. Returns True if OK, sends error and returns False otherwise."""
+        if not self.__class__.required_token:
+            return True
+        
+        provided_token = query.get('token', [None])[0]
+        if provided_token != self.__class__.required_token:
+            self.send_error(401, "Invalid or missing token")
+            return False
+        return True
     
     def do_GET(self):
         parsed = urllib.parse.urlparse(self.path)
         query = urllib.parse.parse_qs(parsed.query)
         
         if parsed.path == '/fetch':
-            self.handle_fetch(query)
+            if self.check_token(query):
+                self.handle_fetch(query)
         elif parsed.path == '/health':
             self.handle_health()
         elif parsed.path == '/shutdown':
-            self.handle_shutdown()
+            if self.check_token(query):
+                self.handle_shutdown()
         else:
             self.send_error(404, "Use /fetch?url=... or /health or /shutdown")
     
@@ -83,50 +99,85 @@ class BrowserFetchHandler(BaseHTTPRequestHandler):
         threading.Thread(target=shutdown).start()
 
 
-def run_server(start_url: str, port: int = 8080, profile_dir: str | None = None):
+def run_server(
+    start_url: str,
+    port: int = 8080,
+    profile_dir: str | None = None,
+    require_token: bool = False
+):
     """Run the browser fetch server.
     
     Args:
         start_url: Initial URL to open (for login)
         port: Port to listen on
         profile_dir: Browser profile directory
+        require_token: Require a secret token for fetch/shutdown requests
     """
     if profile_dir:
         profile_path = Path(profile_dir)
         profile_path.mkdir(parents=True, exist_ok=True)
     
+    token = None
+    if require_token:
+        token = secrets.token_urlsafe(32)
+        BrowserFetchHandler.required_token = token
+    
     print(f"Starting browser-fetch server on http://localhost:{port}", file=sys.stderr)
     print(f"Opening browser to {start_url}...", file=sys.stderr)
     print(f"\nLog in if needed. Browser will stay open for fetches.", file=sys.stderr)
-    print(f"\nUsage:", file=sys.stderr)
-    print(f"  curl 'http://localhost:{port}/fetch?url=https://example.com&text=true'", file=sys.stderr)
-    print(f"  curl 'http://localhost:{port}/shutdown' to stop", file=sys.stderr)
+    
+    if token:
+        print(f"\n*** Security token required ***", file=sys.stderr)
+        print(f"Token: {token}", file=sys.stderr)
+        print(f"\nUsage:", file=sys.stderr)
+        print(f"  curl 'http://localhost:{port}/fetch?token={token}&url=https://example.com&text=true'", file=sys.stderr)
+        print(f"  curl 'http://localhost:{port}/shutdown?token={token}' to stop", file=sys.stderr)
+    else:
+        print(f"\nUsage:", file=sys.stderr)
+        print(f"  curl 'http://localhost:{port}/fetch?url=https://example.com&text=true'", file=sys.stderr)
+        print(f"  curl 'http://localhost:{port}/shutdown' to stop", file=sys.stderr)
+    
+    context = None
+    server = None
+    
+    def signal_handler(signum, frame):
+        print("\nShutting down...", file=sys.stderr)
+        if server:
+            server.shutdown()
+    
+    signal.signal(signal.SIGINT, signal_handler)
+    signal.signal(signal.SIGTERM, signal_handler)
     
     with sync_playwright() as p:
-        if profile_dir:
-            context = p.chromium.launch_persistent_context(
-                user_data_dir=str(profile_path),
-                headless=False,
-                args=['--disable-blink-features=AutomationControlled']
-            )
-            page = context.pages[0] if context.pages else context.new_page()
-        else:
-            browser = p.chromium.launch(headless=False)
-            context = browser.new_context()
-            page = context.new_page()
-        
-        page.goto(start_url, timeout=60000)
-        
-        BrowserFetchHandler.browser_context = context
-        BrowserFetchHandler.page = page
-        
-        server = HTTPServer(('localhost', port), BrowserFetchHandler)
-        
-        print(f"\nServer ready. Ctrl+C to stop.", file=sys.stderr)
-        
         try:
+            if profile_dir:
+                context = p.chromium.launch_persistent_context(
+                    user_data_dir=str(profile_path),
+                    headless=False,
+                    args=['--disable-blink-features=AutomationControlled']
+                )
+                page = context.pages[0] if context.pages else context.new_page()
+            else:
+                browser = p.chromium.launch(headless=False)
+                context = browser.new_context()
+                page = context.new_page()
+            
+            page.goto(start_url, timeout=60000)
+            
+            BrowserFetchHandler.browser_context = context
+            BrowserFetchHandler.page = page
+            
+            server = HTTPServer(('localhost', port), BrowserFetchHandler)
+            
+            print(f"\nServer ready. Ctrl+C to stop.", file=sys.stderr)
             server.serve_forever()
+            
         except KeyboardInterrupt:
-            print("\nShutting down...", file=sys.stderr)
+            pass
         finally:
-            context.close()
+            if context:
+                try:
+                    context.close()
+                except Exception:
+                    pass
+            print("Goodbye.", file=sys.stderr)
