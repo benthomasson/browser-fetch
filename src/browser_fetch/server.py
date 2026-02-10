@@ -142,8 +142,13 @@ def run_server(
     
     def signal_handler(signum, frame):
         print("\nShutting down...", file=sys.stderr)
-        if server:
-            server.shutdown()
+        if context:
+            try:
+                context.close()
+            except Exception:
+                pass
+        print("Goodbye.", file=sys.stderr)
+        sys.exit(0)
     
     signal.signal(signal.SIGINT, signal_handler)
     signal.signal(signal.SIGTERM, signal_handler)
