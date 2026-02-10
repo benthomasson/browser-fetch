@@ -5,10 +5,18 @@ Fetch authenticated web content using a browser session. Uses Playwright with pe
 ## Quick Start
 
 ```bash
-# Install with uv (no clone needed)
+# Server mode (recommended) - keeps browser open for multiple fetches
+uvx --from "git+https://github.com/benthomasson/browser-fetch" browser-fetch --serve https://internal.example.com
+
+# Log in via browser, then fetch with curl:
+curl 'http://localhost:8080/fetch?url=https://internal.example.com/page&text=true'
+```
+
+```bash
+# Or single-fetch mode
 uvx --from "git+https://github.com/benthomasson/browser-fetch" browser-fetch --help
 
-# Or clone and install locally
+# Clone and install locally
 git clone https://github.com/benthomasson/browser-fetch
 cd browser-fetch
 uv sync
@@ -55,6 +63,34 @@ browser-fetch --headless -o /tmp/page.html https://internal.example.com/page
 | `--wait N` | Wait N seconds after page load (default: 5) |
 | `--timeout N` | Page load timeout in seconds (default: 30) |
 | `--profile-dir DIR` | Custom profile directory |
+| `--serve` | Run as HTTP server (browser stays open) |
+| `--port N` | Server port (default: 8080) |
+
+## Server Mode
+
+Keep browser open for multiple fetches - best for SSO sites:
+
+```bash
+# Start server (opens browser)
+uvx --from "git+https://github.com/benthomasson/browser-fetch" browser-fetch --serve https://internal.example.com
+
+# Log in via the browser window, then fetch via curl:
+curl 'http://localhost:8080/fetch?url=https://internal.example.com/page'
+curl 'http://localhost:8080/fetch?url=https://internal.example.com/other&text=true'
+curl 'http://localhost:8080/fetch?url=https://internal.example.com/doc&selector=main'
+
+# Check health
+curl 'http://localhost:8080/health'
+
+# Shutdown
+curl 'http://localhost:8080/shutdown'
+```
+
+**Query parameters:**
+- `url` - URL to fetch (required)
+- `text=true` - extract text only (no HTML)
+- `selector=CSS` - extract specific element
+- `wait=N` - wait N seconds after load
 
 ## How It Works
 
