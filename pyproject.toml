@@ -1,0 +1,16 @@
+[project]
+name = "browser-fetch"
+version = "0.1.0"
+description = "Fetch authenticated web content using browser session"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "playwright>=1.40.0",
+]
+
+[project.scripts]
+browser-fetch = "browser_fetch.__main__:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
