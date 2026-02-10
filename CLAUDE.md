@@ -14,7 +14,7 @@ The server mode keeps a browser open and exposes an HTTP API for fetching pages.
 
 User runs in a terminal:
 ```bash
-uvx --from "git+https://github.com/benthomasson/browser-fetch" browser-fetch --serve --require-token https://internal.example.com
+uvx --from "git+https://github.com/benthomasson/browser-fetch" browser-fetch --serve https://internal.example.com
 ```
 
 Server prints a security token. **Ask the user for this token.**
@@ -45,7 +45,7 @@ Returns `{"status": "ok"}` if running.
 ## Workflow
 
 1. Check if server is running: `curl -s localhost:8080/health`
-2. If not running, ask user to start it with `--serve --require-token`
+2. If not running, ask user to start it with `--serve`
 3. Ask user for the security token
 4. Fetch pages with curl using the token
 5. For large pages, save to file and read: `curl ... > /tmp/page.txt`

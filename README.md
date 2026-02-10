@@ -5,8 +5,8 @@ Fetch authenticated web content using a browser session. Uses Playwright with pe
 ## Quick Start
 
 ```bash
-# Server mode with security token (recommended)
-uvx --from "git+https://github.com/benthomasson/browser-fetch" browser-fetch --serve --require-token https://internal.example.com
+# Server mode (token required by default)
+uvx --from "git+https://github.com/benthomasson/browser-fetch" browser-fetch --serve https://internal.example.com
 
 # Server prints a token. Use it to fetch:
 curl 'http://localhost:8080/fetch?token=YOUR_TOKEN&url=https://internal.example.com/page&text=true'
@@ -65,15 +65,15 @@ browser-fetch --headless -o /tmp/page.html https://internal.example.com/page
 | `--profile-dir DIR` | Custom profile directory |
 | `--serve` | Run as HTTP server (browser stays open) |
 | `--port N` | Server port (default: 8080) |
-| `--require-token` | Require secret token for requests (recommended) |
+| `--no-token-dangerous` | Disable security token (NOT recommended) |
 
 ## Server Mode
 
 Keep browser open for multiple fetches - best for SSO sites:
 
 ```bash
-# Start server with security token (recommended)
-uvx --from "git+https://github.com/benthomasson/browser-fetch" browser-fetch --serve --require-token https://internal.example.com
+# Start server (token required by default)
+uvx --from "git+https://github.com/benthomasson/browser-fetch" browser-fetch --serve https://internal.example.com
 
 # Server prints:
 # *** Security token required ***
@@ -129,8 +129,8 @@ browser-fetch --headless --selector "#content" https://intranet.example.com/page
 ### Use with Claude
 
 ```bash
-# Start server with token
-browser-fetch --serve --require-token https://internal.example.com
+# Start server (token required by default)
+browser-fetch --serve https://internal.example.com
 
 # Give the token to Claude, then Claude can fetch via curl:
 curl 'http://localhost:8080/fetch?token=TOKEN&url=https://internal.example.com/doc&text=true'

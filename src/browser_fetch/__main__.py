@@ -86,9 +86,9 @@ def main():
     )
     
     parser.add_argument(
-        '--require-token',
+        '--no-token-dangerous',
         action='store_true',
-        help='Require a secret token for server requests (recommended for security)'
+        help='Disable security token (NOT recommended - allows any local process to use your session)'
     )
     
     args = parser.parse_args()
@@ -104,7 +104,7 @@ def main():
             start_url=args.url,
             port=args.port,
             profile_dir=args.profile_dir,
-            require_token=args.require_token
+            require_token=not args.no_token_dangerous
         )
         return
     
