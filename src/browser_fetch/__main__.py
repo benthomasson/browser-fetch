@@ -20,7 +20,8 @@ def main():
     
     parser.add_argument(
         'url',
-        help='URL to fetch'
+        nargs='?',
+        help='URL to fetch (or starting URL for --serve mode)'
     )
     
     parser.add_argument(
@@ -71,7 +72,38 @@ def main():
         help='Page load timeout in seconds (default: 30)'
     )
     
+    parser.add_argument(
+        '--serve',
+        action='store_true',
+        help='Run as HTTP server (browser stays open)'
+    )
+    
+    parser.add_argument(
+        '--port',
+        type=int,
+        default=8080,
+        help='Server port (default: 8080)'
+    )
+    
     args = parser.parse_args()
+    
+    if args.serve:
+        from .server import run_server
+        
+        if not args.url:
+            print("Error: URL required for --serve mode (starting page)", file=sys.stderr)
+            sys.exit(1)
+        
+        run_server(
+            start_url=args.url,
+            port=args.port,
+            profile_dir=args.profile_dir
+        )
+        return
+    
+    if not args.url:
+        parser.print_help()
+        sys.exit(1)
     
     try:
         content = fetch_url(
